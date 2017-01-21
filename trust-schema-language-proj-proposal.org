@@ -1,0 +1,155 @@
+
+# * DSL of the trust policy
+
+# ** desire
+
+# Securing communication in network application
+# is complicated: properly authentication of multiple
+# entities.
+
+# Named-data architecture embed data authentication into network layer by
+# requiring all application to sign and authenticate every data packet.
+
+# This DSL of trust schema could enable automating authenticatoin and signing,
+# based on the name of the data packet. Also, it could make sure that codes passed the
+# property checker won't have loop in its policy and all policies will eventually terminated
+# at a trust anchor.
+
+
+# ** properties
+
+# *** loop-free
+# checker will rule out rules that has loops. e.g.
+
+# article -> author
+# author -> article
+
+
+# *** terminated
+# every rule eventually terminates to Root.
+
+# B --> A
+# B --> D
+# D --> C
+# A*
+# C --> 
+   
+# |-->A*
+# | 
+# B       C
+# |       |
+# |-->D----
+
+# if each node has at least one dependence, and there is no loop in this graph,
+# then every rule will end up with a root rule.
+
+# node A has a edge, which is a root certificate, got it.
+# node A has an edge to a non-root node B, this node.B lead to root node, so node A lead to final.
+
+
+# *** least privilege principle
+
+# A --> B --> C
+# A   ---->   C
+
+# This kind of configuration should be prevented.
+
+# Forall nodes A,C, if there exist a path A --> B..... ---> C, then
+# there is not a edge from A --> C.
+
+
+# A -------> C
+#     |
+# ^---|
+# peer loop(self-loop)
+
+
+* Motivation
+
+** backgroud
+
+Named-data network(NDN) introduces a data-centric manner for communication by 
+assigning each data packet a corresponding *name* and letting application
+retrive data by name, instead of by using communication tunnel between hosts.
+NDN architecture embed data authentication into network layer by
+requiring all data packets to be signed. 
+
+However, securing communication in network application
+is complicated even for experienced programmer.
+Design a secure system involves properly authentication of multiple
+entities and granting these enties with a minimal set of privileges.
+
+To address this issue, [1] proposed a simple language to describe trust schemas in NDN,
+that provide an automatic way to do application level authentication and to sign 
+data packet.
+
+In this project, we propose a similar language to describe trust schemas but with
+a strict checker.
+This DSL of trust schema could enable automating authenticatoin and signing,
+based on the name of the data packet. Also, the trust policy that passed the 
+checker will have three propertis:
+
++ no loop-trust relation
++ every rule recursively depends on a trust anchor
++ no rule violate the "least privilege principle"
+
+Example that could pass the checker:
+
+#+begin_src text
+article (<>*)<blog><article><><><>         author(\1)
+author  (<>*)<blog><author>[user]<KEY>[id] admin(\1)
+admin   (<>*)<blog><admin>[user]<KEY>[id]  admin(\1) or root(\1)
+root*   (<>*)<blog><KEY>[id]
+#+end_src
+
+Example that does not pass the checker:
+
+#+begin_src text
+A  (<>*)<xx>   B(\1)
+B  (<>*)<yy>   A(\1)
+
+// Errors: missing trust anchor and trust-loop.
+#+end_src
+
+Example that does not pass the checker:
+
+#+begin_src text
+A  (<>*)<xx>  B(\1) or C(\1)
+B  (<>*)<xx>  C(\1)
+C* <xxsign>
+
+// Error: A --> C violate least privilege principle.
+#+end_src
+
+
+** semantic
+|                 | format                       | Description                                            |
+|-----------------+------------------------------+--------------------------------------------------------|
+| NameComponent   | <name>                       | match a name component /name/                          |
+|                 | <>                           | match any single name component,WildCard NameComponent |
+| Sequence        | NameComponent*               | match any sequence of name component                   |
+| DataName        | Sequence                     |                                                        |
+| Indexed pattern | (Sequance)                   | match & assign it as indexed sub-pattern               |
+| Reference       | \n                           | reference to nth-indexed pattern                       |
+| or              | rule1 or rule2               | using rule1 or rule2                                   |
+| KeyPattern      | Sequence [or Sequence]*      |                                                        |
+| rule            | RuleName DataName KeyPattern | declare a rule                                         |
+| RuleCall        | rule(Reference1, ref..)      | substitute indexed pattern with arguments in /rule/    |
+
+
+* Goals
+
+Implement this language and checker in Gallina and proof that this language 
+will be executed properly, by proof its operational semantics are equal to
+how it will be executed on a stack machine, and has three following properties.
+
++ no loop-trust relation
++ every rule recursively depends on a trust anchor
++ no rule violate the "least privilege principle"
+
+* Milestones
+
++ week-4: language, checker implement.
++ week-6: language interpreter proof.
++ week-8: properties proof.
++ week-10: summary.
