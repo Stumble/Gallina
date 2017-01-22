@@ -119,22 +119,42 @@ Proof.
 Theorem mult_0_r : forall n:nat,
   n * 0 = 0.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros. induction n as [|n' IH'].
+  - reflexivity.
+  - simpl. rewrite IH'. reflexivity.
+Qed.
 
 Theorem plus_n_Sm : forall n m : nat, 
   S (n + m) = n + (S m).
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  induction n as [|n'].
+  - simpl. reflexivity.
+  - simpl. rewrite IHn'. reflexivity.
+Qed.
+(*  use apply XXX when the 'top' form is same of XXX*)
+(* does not need to generalize m *)
+(* question: what magic does this simpl do?*)
 
 Theorem plus_comm : forall n m : nat,
   n + m = m + n.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  induction n as [|n'].
+  - simpl. apply plus_n_O.
+  - simpl. rewrite IHn'. apply plus_n_Sm.
+Qed.
+
+(* when proof stuck, use induction to proof a sub-theorem *)
 
 Theorem plus_assoc : forall n m p : nat,
   n + (m + p) = (n + m) + p.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  induction n as [|n'].
+  - reflexivity.
+  - simpl. rewrite IHn'. reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 2 stars (double_plus)  *)
@@ -150,7 +170,11 @@ Fixpoint double (n:nat) :=
 
 Lemma double_plus : forall n, double n = n + n .
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  induction n as [|n'].
+  - reflexivity.
+  - simpl. rewrite IHn'. rewrite plus_n_Sm. reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 2 stars, optional (evenb_S)  *)
@@ -246,6 +270,7 @@ Proof.
   assert (H: n + m = m + n).
   { rewrite -> plus_comm. reflexivity. }
   rewrite -> H. reflexivity.  Qed.
+(* This assert use is important! *)
 
 (* ################################################################# *)
 (** * More Exercises *)
