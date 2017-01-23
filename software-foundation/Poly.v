@@ -126,14 +126,22 @@ Inductive grumble (X:Type) : Type :=
   | d : mumble -> grumble X
   | e : X -> grumble X.
 
+Check d mumble (b a 5).
+Check d bool (b a 5).
+Check e bool true.
+Check e mumble (b c 0).
+
+(* has to give the parametric type at beggining *)
+(* then the X in the constructor means a instance of that its type*)
+
 (** Which of the following are well-typed elements of [grumble X] for
     some type [X]?
-      - [d (b a 5)]
+      - [d (b a 5)] false
       - [d mumble (b a 5)]
       - [d bool (b a 5)]
-      - [e bool true]
+      - [e bool true] 
       - [e mumble (b c 0)]
-      - [e bool (b c 0)]
+      - [e bool (b c 0)] false
       - [c]
 (* FILL IN HERE *)
 *)
@@ -326,6 +334,8 @@ Proof. reflexivity.  Qed.
 
 Fail Definition mynil := nil.
 
+(* @nil nat, append an @ at the begning *)
+
 (** (The [Fail] qualifier that appears before [Definition] can be
     used with _any_ command, and is used to ensure that that command
     indeed fails when executed. If the command does fail, Coq prints
@@ -372,17 +382,29 @@ Definition list123''' := [1; 2; 3].
 Theorem app_nil_r : forall (X:Type), forall l:list X,
   l ++ [] = l.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  induction l.
+  - reflexivity.
+  - simpl. rewrite IHl. reflexivity.
+Qed.
 
 Theorem app_assoc : forall A (l m n:list A),
   l ++ m ++ n = (l ++ m) ++ n.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  induction l.
+  - reflexivity.
+  - simpl. rewrite IHl. reflexivity.
+Qed.
 
 Lemma app_length : forall (X:Type) (l1 l2 : list X),
   length (l1 ++ l2) = length l1 + length l2.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  induction l1 as [|n' l1'].
+  - reflexivity.
+  - simpl. rewrite IHl1'. reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 2 stars, optional (more_poly_exercises)  *)
@@ -421,6 +443,8 @@ Notation "( x , y )" := (pair x y).
 
 Notation "X * Y" := (prod X Y) : type_scope.
 
+(* example of define type notation *)
+
 (** (The annotation [: type_scope] tells Coq that this abbreviation
     should only be used when parsing types.  This avoids a clash with
     the multiplication symbol.) *)
@@ -456,6 +480,11 @@ Fixpoint combine {X Y : Type} (lx : list X) (ly : list Y)
   | x :: tx, y :: ty => (x, y) :: (combine tx ty)
   end.
 
+Print combine.
+Check combine.
+Check @combine.
+(* question: why different? *)
+
 (** **** Exercise: 1 star, optional (combine_checks)  *)
 (** Try answering the following questions on paper and
     checking your answers in coq:
@@ -476,13 +505,20 @@ Fixpoint combine {X Y : Type} (lx : list X) (ly : list Y)
     [split].  Make sure it passes the given unit test. *)
 
 Fixpoint split {X Y : Type} (l : list (X*Y))
-               : (list X) * (list Y) 
-  (* REPLACE THIS LINE WITH   := _your_definition_ . *) . Admitted.
+  : (list X) * (list Y) :=
+  match l with
+  | nil => (@nil X, @nil Y)
+  | (x, y) :: t => (x :: (fst (split t)) , y :: (snd (split t)))
+  end.
+(* use @nil here, since it might not be able to detect*)
+(* and it was declared to be implicit *)
+(* but it's not necessary *)
 
 Example test_split:
   split [(1,false);(2,false)] = ([1;2],[false;false]).
 Proof.
-(* FILL IN HERE *) Admitted.
+  simpl. reflexivity.
+Qed.
 (** [] *)
 
 (* ================================================================= *)
@@ -648,16 +684,18 @@ Proof. reflexivity.  Qed.
     and returns a list of just those that are even and greater than
     7. *)
 
-Definition filter_even_gt7 (l : list nat) : list nat 
-  (* REPLACE THIS LINE WITH   := _your_definition_ . *) . Admitted.
+SearchAbout nat.
+Definition filter_even_gt7 (l : list nat) : list nat :=
+  (* filter (fun num => false) l. *)
+  filter (fun num => (evenb num) && negb (leb num 7)) l.
 
 Example test_filter_even_gt7_1 :
   filter_even_gt7 [1;2;6;9;10;3;12;8] = [10;12;8].
- (* FILL IN HERE *) Admitted.
+Proof. reflexivity. Qed. 
 
 Example test_filter_even_gt7_2 :
   filter_even_gt7 [5;2;6;19;129] = [].
- (* FILL IN HERE *) Admitted.
+Proof. reflexivity. Qed.
 (** [] *)
 
 (** **** Exercise: 3 stars (partition)  *)
@@ -729,11 +767,24 @@ Proof. reflexivity.  Qed.
 (** Show that [map] and [rev] commute.  You may need to define an
     auxiliary lemma. *)
 
+Theorem map_out : forall (X Y : Type) (f : X -> Y) (l : list X) (n : X),
+    map f (l ++ [n]) = (map f l) ++ [f n].
+Proof.
+  intros.
+  induction l.
+  - reflexivity.
+  - simpl. rewrite IHl. reflexivity.
+Qed.
+
 
 Theorem map_rev : forall (X Y : Type) (f : X -> Y) (l : list X),
   map f (rev l) = rev (map f l).
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  induction l as [|n' l'].
+  - reflexivity.
+  - simpl. rewrite map_out. rewrite IHl'. reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 2 stars, recommended (flat_map)  *)
@@ -747,15 +798,41 @@ Proof.
       = [1; 2; 3; 5; 6; 7; 10; 11; 12].
 *)
 
+Fixpoint flat_list {X : Type} (l : list (list X)) : (list X) :=
+  match l with
+  | nil => nil
+  | h :: t => h ++ (flat_list t)
+  end.
+
+(* you might come up a solution that does not has a strict decreaing
+   at type
+   one solution to this:
+   "http://cstheory.stackexchange.com/questions/1807/how-to-define-a-function-inductively-on-two-arguments-in-coq"
+ *)
+
+(* Fixpoint pair l := fix pair1 (r : Tree) := *)
+(*   match l with *)
+(*     | Tip => match r with *)
+(*               | Tip => TipTip *)
+(*               | Bin rl rr => TipBin rl rr *)
+(*             end *)
+(*     | Bin ll lr => match r with *)
+(*                     | Tip => BinTip ll lr *)
+(*                     | Bin rl rr => BinBin (pair1 rl) (pair lr r) *)
+(*                    end *)
+(*   end. *)
+
+
 Fixpoint flat_map {X Y:Type} (f:X -> list Y) (l:list X)
-                   : (list Y) 
-  (* REPLACE THIS LINE WITH   := _your_definition_ . *) . Admitted.
+  : (list Y) := flat_list (map f l).
+  
 
 Example test_flat_map1:
   flat_map (fun n => [n;n;n]) [1;5;4]
   = [1; 1; 1; 5; 5; 5; 4; 4; 4].
- (* FILL IN HERE *) Admitted.
-(** [] *)
+Proof.
+  simpl. reflexivity. Qed.
+
 
 (** Lists are not the only inductive type that we can write a
     [map] function for.  Here is the definition of [map] for the
@@ -894,9 +971,40 @@ Proof. reflexivity. Qed.
 
 (** Prove the correctness of [fold_length]. *)
 
+  (* fold_length (n' :: l') = S (length l') *)
+(* Theorem fold_out : forall (X : Type) (x : X) (l : list X), *)
+(*     fold_length (x :: l) = S (length l). *)
+(* Proof. *)
+(*   intros. *)
+(*   induction l. *)
+(*   - reflexivity. *)
+(*   - simpl. unfold fold_length. simpl. fold (fold_length l).  *)
+
 Theorem fold_length_correct : forall X (l : list X),
   fold_length l = length l.
-(* FILL IN HERE *) Admitted.
+Proof.
+  intros.
+  induction l as [|n' l'].
+  - reflexivity.
+  - simpl. unfold fold_length. simpl. fold (fold_length l').
+    rewrite IHl'. reflexivity.
+Qed.
+
+(* notes  *)
+(* use unfold to "unfold" complicated function, then try simpl to *)
+(* make one more step. then carefully inspect the current formula,                                                       *)
+(* try to recognize a pattern that could be "fold" back. *)
+(* This pattern should like the definition of the function or constructor of type. *)
+
+
+(* following: answer from Todd *)
+(* Proof. *)
+(*   intros. induction l. *)
+(*   - reflexivity. *)
+(*   - simpl. unfold fold_length. simpl. fold (fold_length l). *)
+(*     rewrite IHl. reflexivity. *)
+(* Qed. *)
+
 (** [] *)
 
 (** **** Exercise: 3 stars (fold_map)  *)
